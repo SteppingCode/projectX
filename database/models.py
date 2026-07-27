@@ -13,3 +13,7 @@ class Bookmark(BaseModel):
     url: str
     title: str
     description: str
+
+
+class User(BaseModel):
+    ...
