@@ -13,10 +13,23 @@ Notice: Fields `id` and `created_at` will be automatically created at inserting 
 class Bookmark(BaseModel):
     id: Optional[int] = None
     url: str
-    title: str        # Убрали Optional и дефолтные значения
-    description: str  # Теперь модель строго требует эти данные
-    created_at: Optional[datetime] = datetime.now()
+    title: str
+    description: str
+    user_id: Optional[int] = None
+    created_at: Optional[datetime] = None
 
+# Вход / Регистрация
+class UserCreate(BaseModel):
+    login: str
+    password: str
 
-class User(BaseModel):
-    ...
+# Ответ с данными пользователя
+class UserOut(BaseModel):
+    id: int
+    login: str
+    created_at: datetime
+
+# Ответ при успехе аутентификации
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from os import getenv, path, listdir
 import asyncpg
 from logging import info, error
-from .models import Bookmark
+from .models import Bookmark, UserOut
 import asyncio
 
 
@@ -26,38 +26,74 @@ class Database:
             else:
                 error("Missing schemas dir. Can not initial DB")
 
+
     @classmethod
-    async def add_bookmark(cls, bookmark: Bookmark) -> bool | None:
+    async def create_user(cls, login: str, password_hash: str) -> UserOut | None:
+        if cls._conn:
+            row = await cls._conn.fetchrow(
+                """INSERT INTO users (login, password_hash)
+                   VALUES ($1, $2)
+                   RETURNING id, login, created_at""",
+                login, password_hash
+            )
+            if row:
+                return UserOut(**dict(row))
+        return None
+
+
+    @classmethod
+    async def get_user_by_login(cls, login: str) -> dict | None:
+        if cls._conn:
+            row = await cls._conn.fetchrow(
+                """SELECT id, login, password_hash, created_at FROM users WHERE login = $1""",
+                login
+            )
+            if row:
+                return dict(row)
+        return None
+
+
+    @classmethod
+    async def get_user_by_id(cls, user_id: int) -> UserOut | None:
+        if cls._conn:
+            row = await cls._conn.fetchrow(
+                """SELECT id, login, created_at FROM users WHERE id = $1""",
+                user_id
+            )
+            if row:
+                return UserOut(**dict(row))
+        return None
+
+
+    @classmethod
+    async def add_bookmark(cls, bookmark: Bookmark, user_id: int) -> bool:
         if cls._conn is not None:
             res = await cls._conn.execute(
-                """INSERT INTO bookmarks (url, title, description)
-                VALUES ($1, $2, $3)""",
-                bookmark.url, bookmark.title, bookmark.description)
-            if res:
-                return True
-            return False
+                """INSERT INTO bookmarks (url, title, description, user_id)
+                VALUES ($1, $2, $3, $4)""",
+                bookmark.url, bookmark.title, bookmark.description, user_id)
+            return bool(res)
+        return False
 
 
     @classmethod
-    async def get_urls(cls) -> list[Bookmark]:
+    async def get_bookmarks(cls, user_id: int) -> list[Bookmark]:
         if cls._conn is not None:
-            res = await cls._conn.fetch("""SELECT * FROM bookmarks""")
-            
-            bookmarks = [Bookmark(**record) for record in res]
-            return bookmarks
-            
+            res = await cls._conn.fetch(
+                """SELECT * FROM bookmarks WHERE user_id = $1""", user_id
+            )
+            return [Bookmark(**record) for record in res]
         return []
 
 
     @classmethod
-    async def delete_url(cls, id: int) -> bool | None:
+    async def delete_bookmark(cls, id: int, user_id: int) -> bool:
         if cls._conn is not None:
-            res = await cls._conn.execute("""DELETE FROM bookmarks WHERE id = $1""", id)
-
-            if res:
-                return True
-            return False
-        return None
+            res = await cls._conn.execute(
+                """DELETE FROM bookmarks WHERE id = $1 AND user_id = $2""", id, user_id
+            )
+            return res == "DELETE 1"
+        return False
     
 
     @classmethod
