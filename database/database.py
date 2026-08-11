@@ -76,6 +76,65 @@ class Database:
 
 
     @classmethod
+    async def add_tag_to_bookmark(cls, user_id: int, bookmark_id: int, tag_name: str) -> bool:
+        if cls._conn is None:
+            return False
+
+        cleaned_tag = tag_name.strip().lower()
+        if not cleaned_tag:
+            return False
+
+        async with cls._conn.transaction():
+            bookmark_exists = await cls._conn.fetchval(
+                "SELECT 1 FROM bookmarks WHERE id = $1 AND user_id = $2",
+                bookmark_id, user_id
+            )
+            if not bookmark_exists:
+                return False
+
+            # Создаем тег, если его еще нет, и получаем его ID
+            tag_id = await cls._conn.fetchval(
+                """
+                INSERT INTO tags (user_id, name)
+                VALUES ($1, $2)
+                ON CONFLICT (user_id, name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING id
+                """,
+                user_id, cleaned_tag
+            )
+
+            # Связываем тег с закладкой
+            await cls._conn.execute(
+                """
+                INSERT INTO bookmark_tags (bookmark_id, tag_id)
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING
+                """,
+                bookmark_id, tag_id
+            )
+            return True
+
+    @classmethod
+    async def remove_tag_from_bookmark(cls, user_id: int, bookmark_id: int, tag_name: str) -> bool:
+        if cls._conn is None:
+            return False
+
+        cleaned_tag = tag_name.strip().lower()
+
+        # Удаляем связь только если закладка принадлежит пользователю
+        res = await cls._conn.execute(
+            """
+            DELETE FROM bookmark_tags
+            WHERE bookmark_id = $1 
+              AND tag_id = (SELECT id FROM tags WHERE user_id = $2 AND name = $3)
+              AND EXISTS (SELECT 1 FROM bookmarks WHERE id = $1 AND user_id = $2)
+            """,
+            bookmark_id, user_id, cleaned_tag
+        )
+        return res == "DELETE 1"
+
+
+    @classmethod
     async def get_bookmarks(cls, user_id: int) -> list[Bookmark]:
         if cls._conn is not None:
             res = await cls._conn.fetch(

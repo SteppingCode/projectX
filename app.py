@@ -181,6 +181,52 @@ async def search_bookmarks_endpoint(
     return await Database.search_bookmarks(user_id=current_user.id, query=query)
 
 
+@router.post("/bookmarks/{bookmark_id}/tags", response_model=bool)
+async def add_tag_to_bookmark_endpoint(
+    bookmark_id: int,
+    tag_name: str,
+    current_user: UserOut = Depends(get_current_user)
+):
+    """Добавление тега к существующей закладке"""
+    success = await Database.add_tag_to_bookmark(
+        user_id=current_user.id,
+        bookmark_id=bookmark_id,
+        tag_name=tag_name
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось добавить тег. Проверьте ID закладки."
+        )
+
+    # Очищаем кэш пользователя, так как набор тегов изменился
+    await redis_client.delete(f"user_bookmarks_{current_user.id}") #type: ignore
+    return True
+
+
+@router.delete("/bookmarks/{bookmark_id}/tags/{tag_name}", response_model=bool)
+async def remove_tag_from_bookmark_endpoint(
+    bookmark_id: int,
+    tag_name: str,
+    current_user: UserOut = Depends(get_current_user)
+):
+    """Удаление тега у закладки"""
+    success = await Database.remove_tag_from_bookmark(
+        user_id=current_user.id,
+        bookmark_id=bookmark_id,
+        tag_name=tag_name
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Тег или закладка не найдены."
+        )
+
+    # Очищаем кэш пользователя
+    await redis_client.delete(f"user_bookmarks_{current_user.id}") #type: ignore
+    return True
+
+
 @router.delete("/delete_bookmark/{id}", response_model=bool)
 async def delete_bookmark_by_id(
     id: int, 
