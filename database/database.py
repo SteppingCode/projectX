@@ -3,7 +3,6 @@ from os import getenv, path, listdir
 import asyncpg
 from logging import info, error
 from .models import Bookmark, UserOut
-import asyncio
 
 
 load_dotenv()
@@ -104,14 +103,3 @@ class Database:
             cls._conn = None
             info("Соединение закрыто.")
 
-
-if __name__ == "__main__":
-    async def test():
-        conn = await asyncpg.connect(dsn=DSN_LINK)
-        with open("schemas/bookmarks.sql") as f:
-            sql = f.read()
-            res = await conn.execute(sql)
-            return res
-
-    asyncio.run(test())
-    

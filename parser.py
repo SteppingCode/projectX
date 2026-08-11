@@ -1,6 +1,7 @@
 import httpx
 from bs4 import BeautifulSoup
 
+
 async def fetch_url_metadata(url: str) -> dict:
     async with httpx.AsyncClient() as client:
         try:

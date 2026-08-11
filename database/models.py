@@ -18,10 +18,12 @@ class Bookmark(BaseModel):
     user_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
+
 # Вход / Регистрация
 class UserCreate(BaseModel):
     login: str
     password: str
+
 
 # Ответ с данными пользователя
 class UserOut(BaseModel):
@@ -29,7 +31,13 @@ class UserOut(BaseModel):
     login: str
     created_at: datetime
 
+
 # Ответ при успехе аутентификации
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+class TokenRefresh(BaseModel):
+    refresh_token: str
