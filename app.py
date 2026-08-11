@@ -1,4 +1,6 @@
 import jwt
+import json
+import redis.asyncio as aioredis
 
 from fastapi import APIRouter, FastAPI, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -15,12 +17,20 @@ from typing import List
 from parser import fetch_url_metadata
 
 
+redis_client = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Инициализируем БД при старте
+    global redis_client
     await Database.initialize()
+    
+    redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
+    
     yield
+    
     await Database.close_all()
+    await redis_client.close()
 
 
 app = FastAPI(
@@ -130,21 +140,45 @@ async def add_bookmark_to_db(
     current_user: UserOut = Depends(get_current_user)
 ):
     metadata = await fetch_url_metadata(url)
-
     bookmark = Bookmark(
         url=url,
         title=metadata["title"],
         description=metadata["description"]
     )
-    
-    return await Database.add_bookmark(bookmark, user_id=current_user.id)
+    result = await Database.add_bookmark(bookmark, user_id=current_user.id)
+
+    if result:
+        await redis_client.delete(f"user_bookmarks_{current_user.id}") # type: ignore
+        
+    return result
 
 
 @router.get("/bookmarks", response_model=List[Bookmark])
 async def get_all_bookmarks(
     current_user: UserOut = Depends(get_current_user)
 ):
-    return await Database.get_bookmarks(user_id=current_user.id)
+    cache_key = f"user_bookmarks_{current_user.id}"
+    
+    cached_data = await redis_client.get(cache_key) # type: ignore
+    if cached_data:
+        return json.loads(cached_data)
+        
+    bookmarks = await Database.get_bookmarks(user_id=current_user.id)
+    
+    # Сохраняем результат в Redis на 300 секунд
+    bookmarks_dict = [b.model_dump(mode="json") for b in bookmarks]
+    await redis_client.setex(cache_key, 300, json.dumps(bookmarks_dict)) # type: ignore
+    
+    return bookmarks
+
+
+@router.get("/bookmarks/search", response_model=List[Bookmark])
+async def search_bookmarks_endpoint(
+    query: str,
+    current_user: UserOut = Depends(get_current_user)
+):
+    """Полнотекстовый поиск по закладкам"""
+    return await Database.search_bookmarks(user_id=current_user.id, query=query)
 
 
 @router.delete("/delete_bookmark/{id}", response_model=bool)
@@ -152,7 +186,13 @@ async def delete_bookmark_by_id(
     id: int, 
     current_user: UserOut = Depends(get_current_user)
 ):
-    return await Database.delete_bookmark(id, user_id=current_user.id)
+    result = await Database.delete_bookmark(id, user_id=current_user.id)
+    
+    # Сбрасываем кэш при удалении
+    if result:
+        await redis_client.delete(f"user_bookmarks_{current_user.id}") # type: ignore
+        
+    return result
 
 
 app.include_router(router)

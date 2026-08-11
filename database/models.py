@@ -17,6 +17,7 @@ class Bookmark(BaseModel):
     description: str
     user_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    tags: list[str] = []
 
 
 # Вход / Регистрация
