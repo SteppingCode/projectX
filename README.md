@@ -124,6 +124,10 @@ Run the server:
 uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
 ## 📡 API Reference Overview
 
 ### 🔐 Authentication (/api/auth)
