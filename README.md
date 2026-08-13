@@ -124,10 +124,6 @@ Run the server:
 uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## 📜 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
 ## 📡 API Reference Overview
 
 ### 🔐 Authentication (/api/auth)
@@ -148,3 +144,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 | DELETE | /api/delete_bookmark/{id} | Remove bookmark by ID & invalidate cache | 🔒 Bearer |
 | POST | /api/bookmarks/{id}/tags | Attach tag to bookmark | 🔒 Bearer |
 | DELETE | /api/bookmarks/{id}/tags/{tag} | Remove tag from bookmark | 🔒 Bearer |
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
