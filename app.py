@@ -1,5 +1,4 @@
-import jwt
-import json
+import jwt, json, os
 import redis.asyncio as aioredis
 
 from fastapi import APIRouter, FastAPI, Depends, HTTPException, status
@@ -25,7 +24,8 @@ async def lifespan(app: FastAPI):
     global redis_client
     await Database.initialize()
     
-    redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
+    redis_client = aioredis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379")
+                                     , decode_responses=True)
     
     yield
     

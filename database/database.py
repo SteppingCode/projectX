@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from os import getenv, path, listdir
-import asyncpg
+import asyncpg, asyncio
 from logging import info, error
 from .models import Bookmark, UserOut
 
@@ -15,12 +15,20 @@ class Database:
     @classmethod
     async def initialize(cls) -> None:
         if cls._conn is None:
-            cls._conn = await asyncpg.connect(dsn=DSN_LINK)
+            for attempt in range(5):
+                try:
+                    cls._conn = await asyncpg.connect(dsn=DSN_LINK)
+                    break
+                except (OSError, asyncpg.PostgresError):
+                    if attempt == 4:
+                        raise
+                    await asyncio.sleep(2)
+
             if path.exists("database/schemas"):
-                for i in listdir("database/schemas"):
+                for i in sorted(listdir("database/schemas")):
                     with open(f"database/schemas/{i}") as f:
                         sql = f.read()
-                        await cls._conn.execute(sql)
+                        await cls._conn.execute(sql) # type:ignore
                 info("DB initialized")
             else:
                 error("Missing schemas dir. Can not initial DB")
